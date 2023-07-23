@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { Button, ButtonGroup, Props, Card, Elevation, Classes, Text, H2, ControlGroup, NumericInput, Checkbox, Overlay, Spinner, FocusStyleManager } from "@blueprintjs/core";
+import { Button, ButtonGroup, Props, Card, Elevation, Classes, Text, H2, ControlGroup, NumericInput, Checkbox, Overlay, Spinner, FocusStyleManager, H3 } from "@blueprintjs/core";
 import { DateInput, TimePrecision } from "@blueprintjs/datetime";
 
 enum WateringPeriodicity {
@@ -358,6 +358,74 @@ export class Schedule extends React.PureComponent<ScheduleProps, ScheduleState> 
   }
 }
 
+interface MotorControlState {
+  status: number
+  updating: boolean
+}
+
+class MotorControl extends React.PureComponent<{}, MotorControlState> {
+  constructor(props: any) {
+    super(props);
+    this.state = {
+      status: 0,
+      updating: false
+    }
+    setTimeout(this.refresh_status, 5000, this);
+  }
+
+  private refresh_status = (mc: MotorControl) => {
+    if ((mc.state.updating == false) && (typeof mc.context !== "undefined")) {
+      fetch("/api/motor_status").then((value: Response) => {
+        if (value.ok) {
+          value.text().then((value: string) => {
+            if(value === "1") {
+              mc.setState({status: 1});
+            } else if (value === "0") {
+              mc.setState({status: -1});
+            }
+          });
+        } else {
+          mc.setState({status: 0});
+        }
+      });
+    }
+    setTimeout(mc.refresh_status, 5000, mc);
+  }
+  private status2test(): string {
+    if(this.state.status == 0) {
+      return "не відомо";
+    } else if(this.state.status == 1) {
+      return "працює";
+    } else {
+      return "не працює";
+    }
+  }
+
+  public render() {
+    return (
+      <Card>
+        <H3>Керування моторчиком</H3>
+        <Text>Cтатус: {this.status2test()}</Text>
+        <div>
+          <Button disabled={this.state.updating} style={{margin: "10px", width: "100px"}} onClick={() => {
+            this.setState({updating: true});
+            fetch("/api/motor_on").then((value: Response) => {
+              if(value.status == 200) this.setState({status: 1});
+              this.setState({updating: false});
+            })
+          }}>Увімкнути</Button>
+          <Button disabled={this.state.updating} style={{margin: "10px", width: "100px"}} onClick={() => {
+            this.setState({updating: true});
+            fetch("/api/motor_off").then((value: Response) => {
+              if(value.status == 200) this.setState({status: -1});
+              this.setState({updating: false});
+            })
+          }}>Вимкнути</Button>
+        </div>
+      </Card>
+    )
+  }
+}
 
 export default class App extends React.PureComponent {
   public render() {
@@ -366,6 +434,7 @@ export default class App extends React.PureComponent {
       <Card elevation={Elevation.TWO}>
         <H2>Поливалочка</H2>
         <Schedule />
+        <MotorControl/>
       </Card>
     </div>);
   }
